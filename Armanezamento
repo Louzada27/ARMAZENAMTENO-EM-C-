@@ -1,0 +1,968 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "Vendas.h"
+
+#define Tam 50
+
+struct Produtos {
+  int id;
+  double custo;
+  double ICMS;
+  double depesa;
+  double lucratividade;
+  double preco;
+  char nome[Tam];
+  int quantidade;
+  
+  struct Produtos *direita;
+  struct Produtos *esquerda;
+
+};
+
+struct TabelaVendas {
+  int idNota;
+  int idProduto;
+  double imposto;
+  double preco;
+  double valor;
+  char data[Tam];
+  int quantidade;
+
+  struct TabelaVendas *direita;
+  struct TabelaVendas *esquerda;
+};
+
+struct TabelaCompras {
+  int idProduto;
+  int idNota;
+  double preco;
+  double imposto;
+  int quantidade;
+  double valor;
+  char data[Tam];
+
+  struct TabelaCompras *direita;
+  struct TabelaCompras *esquerda;
+};
+
+
+void notasVendas (struct TabelaVendas *ptr,char nome[Tam]);
+
+struct TabelaVendas* novoVendas(struct Produtos* ptr, char data[Tam], int id,char nome[Tam]);
+
+struct TabelaVendas* inserir_vendas(struct Produtos *aux,struct TabelaVendas* ptr, int id,char data[Tam],char nome[Tam]);
+struct TabelaVendas* inserir_do_arquivo_vendas(struct TabelaVendas* ptr, int idNota,int idProduto, char data[Tam], 
+double preco, int quant,double imposto, double valor);
+
+void arq_para_arvore(struct TabelaVendas *ptr); 
+
+void arvore_para_arq(struct TabelaVendas *ptr);
+
+double relacao_vendas(int mes,struct TabelaVendas *ptr,double *valor_total);
+
+void relacao_vendas_txt(int mes,struct TabelaVendas *ptr);
+
+struct Produtos* novoNo(int id, char nome[Tam],int idCompra);
+void imprimir(struct Produtos *ptr);
+struct Produtos* inserir(struct Produtos* ptr, int id, char nome[Tam], int idCompra);
+//--=-=-=-=-=-=-=-=-=-=--==-=-=-=--=-=--==-=-=-=---=-=-=-=-=-=--=-=-==-
+void arvore_para_arq_produtos(struct Produtos *ptr);
+struct Produtos* arq_para_arvore_produtos(struct Produtos *ptr);
+double relacaoProdutos (struct Produtos *ptr, double *aux);
+void relacaoProdutostxt (struct Produtos *ptr);
+void imprimir_vendas(struct TabelaVendas *ptr);
+struct Produtos* procurar(char nome[Tam], struct Produtos *ptr);
+int posicao(char nome[Tam], char nome2[Tam]); /// indetificar  aposicão em que os nomes são diferetnes
+double movimenta_produto(char nome[Tam],int id ,struct TabelaVendas *ptr,double *aux);
+void movimenta_produto_texto(char nome[Tam],struct Produtos *ptr,struct TabelaVendas *aux);
+struct Produtos* atualizar_venda (struct Produtos *ptr,int quantidade);
+int pega_id(int idProduto, int idVenda, int idCompra,int codigo);
+void gera_id(int idProduto, int idVenda, int idCompra); 
+//--------------------------------------------------------------------
+struct TabelaCompras* novaCompra();
+struct Produtos* Reposicao(struct Produtos *ptr, char nome[Tam],int id, char data[Tam],int idCompra);
+struct Produtos* atualizar_compra (struct Produtos *ptr,int quantidade, double valor);
+struct Produtos* verificar(struct Produtos* ptr,char nome[Tam]);
+int verifiar_vazio(struct Produtos* ptr);
+void notaCompra(struct Produtos *ptr, char data[Tam],int idCompra);
+void arq_para_arvora_compras(struct TabelaCompras* ptr);
+struct TabelaCompras *inserir_do_arquivo_compras(struct TabelaCompras *ptr,int idNota,int idProduto, char data[Tam], 
+double preco, int quant,double imposto, double valor);
+void limpar(char Ptr[Tam]);
+void arvore_para_arq_compras(struct TabelaCompras *ptr);
+void imprimir_comprar(struct TabelaCompras *ptr) {
+  if(ptr != NULL){
+       imprimir_comprar(ptr->esquerda);
+       printf("\n%d\n",ptr->idProduto);
+       imprimir_comprar(ptr->direita);
+  }
+
+}
+//-------------------------------------------------------------------
+void menu();
+
+int main(void) { 
+  struct  Produtos*  produtos;
+  struct  TabelaVendas *vendas;
+  struct  TabelaCompras *compras;
+  int opcao = 0;
+  char NomeAux[Tam],DataAux[Tam];
+  
+  int idProduto;
+  int idCompra;
+  int idVenda ;
+  
+  int mes;
+  
+  idProduto =   pega_id(idProduto,idVenda,idCompra,0);
+  idVenda   =   pega_id(idProduto,idVenda,idCompra,1);
+  idCompra  =   pega_id(idProduto,idVenda,idCompra,2);
+
+  
+  
+  
+  produtos = novoNo(0,"00",0);
+  arq_para_arvore_produtos(produtos);
+
+
+  vendas = novoVendas(produtos,"00",0,"00");
+  arq_para_arvore(vendas);
+  
+  compras = novaCompra();
+  arq_para_arvora_compras(compras);
+
+
+  while(opcao != 6){
+    menu();
+    printf("-> ");
+    scanf("%d",&opcao);
+    
+    switch(opcao){
+      case(1):
+        remove("RelaçãoProdutos.txt");
+        printf("Nome do produto -> ");
+        scanf("%s",NomeAux);
+        if(verifiar_vazio(produtos)){
+           idProduto++;
+           idCompra++;
+           produtos = inserir(produtos,idProduto,NomeAux,idCompra);
+        } //verificar se e o primeiro elemento a ser inserido 
+        else if(!verificar(produtos,NomeAux)){ 
+          printf("Data atual no seguinte formato\ndd/mm/aaaa->");
+          scanf("%s",DataAux);
+          
+          produtos = Reposicao(procurar(NomeAux,produtos),NomeAux,idProduto,DataAux,idCompra);
+        }//verifica se o produto ja existir
+        else{
+           idCompra++;
+           idProduto++;
+           produtos = inserir(produtos,idProduto,NomeAux,idCompra);
+        }  
+        relacaoProdutostxt(produtos);//atauliza a relação de produtos
+      break;
+       case(2):
+    
+         remove("RelaçãoProdutos.txt");
+         printf("Nome do produto -> ");
+         scanf("%s",NomeAux);
+         if(!verificar(produtos,NomeAux)){
+             printf("Data atual no seguinte formato\ndd/mm/aaaa->");
+             scanf("%s",DataAux);
+             idVenda++;
+             vendas = inserir_vendas(procurar(NomeAux,produtos),vendas,idVenda,DataAux,NomeAux);
+        
+         }
+         else{
+           printf("ERRO:produto nao encontrado\n");
+         }
+         relacaoProdutostxt(produtos);//atauliza a relacção de produtos
+         
+      break;
+       case(3):
+         remove("Movimentação.txt");
+         printf("Nome do produto -> ");
+         scanf("%s",NomeAux);
+         movimenta_produto_texto(NomeAux,procurar(NomeAux,produtos),vendas);
+         printf("link-> Movimentação.txt");
+      break;
+       case(4):
+         remove("RelaçãoVendas.txt");
+         printf("Digite o Mes-> ");
+         scanf("%d",&mes);
+         relacao_vendas_txt(mes,vendas);
+         printf("Link->   RelaçãoVendas.txt\n");
+      break;
+       case(5):
+         
+         remove("Vendas.txt");
+         remove("Produtos.txt");
+        
+         
+         gera_id(idProduto,idVenda,idCompra);
+         
+         arvore_para_arq(vendas);
+         arvore_para_arq_produtos(produtos);
+      
+         
+         exit(0);
+        break;
+      
+    }
+  }
+
+  
+  return 0;
+}
+
+void limpar(char Ptr[Tam]) {
+  for(int i = 0; i< Tam;i++){
+    Ptr[i] = 0;
+  }
+}
+void menu(){
+ printf("\n-=-=-=-=-=MENU-=-=-=-=-=\n");
+ printf("Link -> RelaçãoProdutos.txt\n");
+ printf("1-> Comprar\n");
+ printf("2-> Venda\n");
+ printf("3-> Pesquisa Produto\n");
+ printf("4-> Pesquisa Venda\n");
+ printf("5-> Sair\n");
+}
+// -=-=-==-=-= BST
+
+struct Produtos* novoNo(int id, char nome[Tam],int idCompra) {
+  struct Produtos* no = (struct Produtos*)malloc(sizeof(struct Produtos));
+  if(id == 0){
+    no->preco = 0.0;
+    for(int i =0;i<Tam;i++){
+     no->nome[i] = nome[i];
+   }
+    no->id = id;
+    no->quantidade = 0;
+    no->ICMS = 0.0;
+    no->custo = 0;
+    no->depesa = 0.0;
+    no->lucratividade = 0.0;
+  
+   
+    
+  }
+  
+  else{
+    
+    for(int i =0;i<Tam;i++){
+     no->nome[i] = nome[i];
+   }
+    no->id = id;
+
+    printf("Quantidade-> ");
+    scanf("%d",&no->quantidade);
+    printf("ICMS-> ");
+    scanf("%lf",&no->ICMS);
+    printf("Custo-> ");
+    scanf("%lf",&no->custo);
+    printf("Despesa-> ");
+    scanf("%lf",&no->depesa);
+    printf("Lucratividade-> ");
+    scanf("%lf",&no->lucratividade);
+    char data[Tam];
+
+
+    no->preco = no->custo+(no->depesa/no->quantidade);
+
+    no->preco = ((no->preco)/110)*no->lucratividade + no->preco;
+
+    no->preco = (no->preco/110)*no->ICMS + no->preco;
+
+    
+    printf("Data atual no seguinte formato\ndd/mm/aaaa->");
+    scanf("%s",data);
+    notaCompra(no,data,idCompra);
+    
+  }
+
+
+  no->direita = NULL;
+  no->esquerda = NULL;
+
+  return no;
+}
+struct Produtos* inserir(struct Produtos* ptr, int id, char nome[Tam],int idCompra) { 
+ if (ptr == NULL) 
+    return(novoNo(id,nome,idCompra)); 
+  
+  if (nome[0]-96 < ptr->nome[0]-96){
+      ptr->esquerda = inserir(ptr->esquerda, id,nome,idCompra); 
+	} //armazena pela ordem alfabetica usado a tabel ascii
+  
+  else if (nome[0]-96 > ptr->nome[0]-96){
+    ptr->direita = inserir(ptr->direita,id,nome,idCompra);
+    
+	}
+  
+  else  if( (nome[0]-96 == ptr->nome[0]-96)) {
+     if (nome[posicao(nome,ptr->nome)]-96 < ptr->nome[posicao(nome,ptr->nome)]-96){
+      ptr->esquerda = inserir(ptr->esquerda, id,nome,idCompra); 
+	} //armazena pela ordem alfabetica usado a tabel ascii
+  
+    else if (nome[posicao(nome,ptr->nome)]-96 > ptr->nome[posicao(nome,ptr->nome)]-96){
+    ptr->direita = inserir(ptr->direita,id,nome,idCompra);
+    
+	}
+      
+  }
+      
+  return ptr; 
+
+}
+
+void imprimir(struct Produtos *ptr) {
+  if(ptr != NULL){
+       imprimir(ptr->esquerda);
+       printf("\n%s\n",ptr->nome);
+       imprimir(ptr->direita);
+  }
+
+}
+
+//-=-=-=-=---=-=-=-
+
+// -=-=-=-=-==--=-==-= arquivos
+
+void arvore_para_arq_produtos(struct Produtos *ptr) {
+  if(ptr != NULL){
+    arvore_para_arq_produtos(ptr->esquerda);
+    FILE *arq = fopen("Produtos.txt", "a");
+    if(ptr->id != 0){
+          fprintf(arq,"%-2d     %-15s    %-5.2lf     %-5d     %.2lf    %.2lf    %.2lf     %.2lf \n",
+          ptr->id,ptr->nome,ptr->preco,ptr->quantidade,ptr->ICMS,ptr->custo,ptr->depesa,ptr->lucratividade);
+         
+    }
+    fclose(arq);
+
+    arvore_para_arq_produtos(ptr->direita); 
+ }
+} //pega os dados da arvore e joga no arquivo
+
+struct Produtos* inserir_do_arquivo(struct Produtos* ptr, int id, char nome[Tam], //pega os dados e inseri na arvore
+double preco, int quant,double icms, double custo, double despesa, double lucro) { 
+ if (ptr == NULL) {
+    struct Produtos* no = (struct Produtos*)malloc(sizeof(struct Produtos)); 
+    no->preco = preco;
+    for(int i =0;i<Tam;i++){
+     no->nome[i] = nome[i];
+   }
+    no->id = id;
+    no->quantidade = quant;
+    no->ICMS = icms;
+    no->custo = custo;
+    no->depesa = despesa;
+    no->lucratividade = lucro;
+    no->direita = NULL;
+    no->esquerda = NULL;
+
+  return no;
+ } //quando achar o local ele inseri o novo no
+    
+  
+    if (nome[0]-96 < ptr->nome[0]-96){
+      ptr->esquerda = inserir_do_arquivo(ptr->esquerda, id,nome,preco,quant,icms,custo,despesa,lucro); 
+	} //armazena pela ordem alfabetica usado a tabel ascii
+  
+    else if (nome[0]-96 > ptr->nome[0]-96){
+     ptr->direita = inserir_do_arquivo(ptr->direita,id,nome,preco,quant,icms,custo,despesa,lucro);
+    
+	}
+    else{
+       
+    if (nome[posicao(nome,ptr->nome)]-96 < ptr->nome[posicao(nome,ptr->nome)]-96){
+      ptr->esquerda = inserir_do_arquivo(ptr->esquerda, id,nome,preco,quant,icms,custo,despesa,lucro); 
+	} 
+    else if (nome[posicao(nome,ptr->nome)]-96 > ptr->nome[posicao(nome,ptr->nome)]-96){
+     ptr->direita = inserir_do_arquivo(ptr->direita,id,nome,preco,quant,icms,custo,despesa,lucro);
+    
+	}  
+      
+    }
+  
+    
+
+
+ 
+  return ptr; 
+
+}
+
+struct Produtos* arq_para_arvore_produtos(struct Produtos *ptr) {
+  FILE *arq = fopen("Produtos.txt","r");
+  int id, quantidade;
+  double preco,icm,custo,despesa,lucro;
+  char nome[Tam];
+  
+  if(arq!= NULL){
+     while(!feof(arq)){
+    
+    fscanf(arq,"%d%s%lf%d%lf%lf%lf%lf",&id,nome,&preco,&quantidade,&icm,&custo,&despesa,&lucro);
+    if(id != 0){
+      ptr = inserir_do_arquivo(ptr,id,nome,preco,quantidade,icm,custo,despesa,lucro);
+    }
+
+  
+    
+  }
+     fclose(arq);
+  }
+ 
+  return ptr;
+} //percorre o arquivop colentando os dados e joga na função "inserir_do_arquivo"
+
+double relacaoProdutos (struct Produtos *ptr, double *aux){
+  if(ptr!=NULL){
+     relacaoProdutos(ptr->esquerda,aux); 
+     if(ptr->id != 0){
+        FILE *arq = fopen("RelaçãoProdutos.txt","a");
+   
+        double valor;
+        valor = (ptr->preco*ptr->quantidade)-(ptr->custo*ptr->quantidade);
+        *aux+=valor;
+       
+          fprintf(arq,"%-5d  %-5s %8d            %.2lf      %-2.2lf       %-2.2lf\n", 
+        ptr->id,ptr->nome,ptr->quantidade,ptr->preco,ptr->custo,valor);
+        
+        
+        fclose(arq);
+     }
+     relacaoProdutos(ptr->direita,aux);
+  }
+  else{
+    return *aux;
+  }
+  
+} //relação de produtos 
+void relacaoProdutostxt (struct Produtos *ptr) {
+   FILE *arq = fopen("RelaçãoProdutos.txt","a");
+   double valor_total;
+   fprintf(arq,"-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--==-=-=\n");
+   fprintf(arq,"Empresa Terceiro SI\nRelação de produtos\n");
+   fprintf(arq,"-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--==-=-=\n");
+   fprintf(arq,"id   Descrição     Quantidade     Preço    Custo       Valor\n");
+   fclose(arq);
+   FILE *arq2 = fopen("RelaçãoProdutos.txt","a");
+   fprintf(arq2,"VALOR TOTAL                                         %.2lf",relacaoProdutos(ptr,&valor_total));
+   fclose(arq2);
+
+} //relacaço de produtos
+  
+int posicao(char nome[Tam], char nome2[Tam]){
+  int i =0;
+  while(nome[i] == nome2[i]){
+    if(i == Tam){
+      printf("%d   %d",nome[i],nome2[i]);
+      return  0;
+    }
+    i++;
+  
+  return i; 
+}
+} //acha aposição no char que os elementos são diferentes
+struct Produtos* procurar(char nome[Tam], struct Produtos *ptr) {
+    if(!strcmp(nome,ptr->nome)){
+      return ptr;
+    }
+  
+    if (nome[0]-96 < ptr->nome[0]-96){
+      ptr = procurar(nome,ptr->esquerda);
+	} 
+    else if (nome[0]-96 > ptr->nome[0]-96){
+     ptr = procurar(nome,ptr->direita);
+    
+	}
+    else if(nome[0] == ptr->nome[0]){
+      if (nome[posicao(nome,ptr->nome)]-96 < ptr->nome[posicao(nome,ptr->nome)]-96){
+         ptr = procurar(nome,ptr->esquerda);
+	} 
+      else if (nome[posicao(nome,ptr->nome)]-96 > ptr->nome[posicao(nome,ptr->nome)-96]){
+          ptr = procurar(nome,ptr->direita);
+    
+	}
+      
+    }
+
+    
+
+    return  ptr;
+} //achar o produto na arvore pelo nome
+void gera_id(int idProduto, int idVenda, int idCompra) {
+  FILE *arq = fopen("IDS.txt","w");
+  fprintf(arq,"%d   %d   %d",idProduto,idVenda,idCompra);
+  fclose(arq);
+} //salva os ultimos ids no arquiv
+int pega_id(int idProduto, int idVenda, int idCompra,int codigo) {
+  FILE *arq = fopen("IDS.txt","r");
+  if(!arq){
+    return 0;
+  }
+  fscanf(arq,"%d%d%d",&idProduto,&idVenda,&idCompra);
+  fclose(arq);
+  if(codigo == 0){
+    return idProduto;
+  }
+  else if(codigo ==1){
+    return idVenda;
+  }
+  else{
+    return idCompra;
+  }
+} //pega os ids no arquivo
+//-=-=-=-=-=-=-=--= 
+void notasVendas (struct TabelaVendas *ptr,char nome[Tam]) {
+  FILE *arq = fopen("NotasVendas.txt", "a");
+  fprintf(arq,"%s   %s   %d  %.2lf   %.2lf  %d\n",ptr->data,nome,ptr->quantidade,ptr->imposto,ptr->valor,ptr->idProduto);
+  fclose(arq);
+  printf("\n  CUPOM FISCAL   \n");
+  printf("%2s\n",ptr->data);
+  printf("%5s        %5d      %.2lf\n",nome,ptr->quantidade,ptr->imposto);
+  printf("Valor: %.2lf                  \n",ptr->valor);
+  
+
+} //gera  anota da venda
+struct Produtos* atualizar_venda (struct Produtos *ptr,int quantidade) {
+    ptr->quantidade -= quantidade;
+    return ptr;
+} //atualiza os produtos no estoque
+
+struct TabelaVendas* novoVendas(struct Produtos* ptr, char data[Tam], int id,char nome[Tam]){
+  struct TabelaVendas* no = (struct TabelaVendas*)malloc(sizeof(struct TabelaVendas));
+  if(id==0){
+    no->idNota = id;
+    no->preco = 0.0;
+    for(int i =0;i<Tam;i++){
+     no->data[i] = data[i];
+   }
+    no->quantidade = 0;
+    no->imposto = 0.0;
+    no->idProduto = 0;
+    no->valor = 0.0;
+    
+
+  }
+  else{
+   for(int i =0;i<Tam;i++){
+     no->data[i] = data[i];
+   }
+   no->idProduto = ptr->id;
+   no->idNota = id;
+   printf("quantidade-> ");
+   scanf("%d",&no->quantidade);
+   if(no->quantidade > ptr->quantidade){
+     printf("Quantidade em estoque insuficiente\n");
+     printf("Temos somente %d unidades de %s\n",ptr->quantidade,nome);
+     printf("insera uma nova quantidade\n");
+     printf("quantidade-> ");
+     scanf("%d",&no->quantidade);
+   }
+   ptr = atualizar_venda(ptr,no->quantidade);
+   no->preco = ptr->preco;
+   no->imposto = ptr->ICMS;
+   no->valor = (((ptr->preco)/100)*ptr->ICMS)+ptr->preco;
+
+   notasVendas(no,nome);
+  }
+  no->direita = NULL;
+  no->esquerda = NULL;
+
+  return no;
+}; //gera as novas cvendas
+struct TabelaVendas* inserir_vendas(struct Produtos* aux,struct TabelaVendas* ptr, int id,char data[Tam],char nome[Tam]){
+  if (ptr == NULL){
+    return(novoVendas(aux,data,id,nome)); 
+  } 
+  
+  if (data[0]-30 < ptr->data[0]-30){
+                  ptr->esquerda = inserir_vendas(aux,ptr->esquerda, id,data,nome); 
+	          } //armazena pela ordem da data usado a tabel ascii
+  else if (data[0]-30 > ptr->data[0]-30){
+                ptr->direita = inserir_vendas(aux,ptr->direita,id,data,nome);
+            }
+  
+  else{
+    if (data[posicao(data,ptr->data)]-30 < ptr->data[posicao(data,ptr->data)]-30){
+                  ptr->esquerda = inserir_vendas(aux,ptr->esquerda, id,data,nome); 
+	          } 
+    else if (data[posicao(data,ptr->data)]-30 > ptr->data[posicao(data,ptr->data)]-30){
+                ptr->direita = inserir_vendas(aux,ptr->direita,id,data,nome);
+            }
+            
+    else if(id == ptr->idNota){
+      printf("ERRO:Usuario ja cadastrado\n"); 
+      return 0;   
+    }
+    else{
+       if (id < ptr->idNota){
+             ptr->esquerda = inserir_vendas(aux,ptr->esquerda, id,data,nome); 
+	} //armazena pela ordem alfabetica usado a tabel ascii
+       else if (id > ptr->idNota){
+            ptr->direita = inserir_vendas(aux,ptr->direita,id,data,nome);
+	     }
+    }
+}
+   //caso forem iguais a primeria letra 
+ 
+  return ptr; 
+
+  
+} // gera  as novas vendas
+
+void imprimir_vendas(struct TabelaVendas *ptr){
+  if(ptr!=NULL){
+     imprimir_vendas(ptr->esquerda);
+     printf(" %d ",ptr->idProduto);
+     imprimir_vendas(ptr->direita);
+    
+  }
+} // operacional
+
+double movimenta_produto (char nome[Tam],int id ,struct TabelaVendas *ptr,double *aux) {
+    if(ptr != NULL){
+      movimenta_produto(nome,id,ptr->esquerda,aux);
+      if(id == ptr->idProduto){
+        FILE *arq = fopen("Movimentação.txt","a");
+        fprintf(arq,"%d    %s    %d   %.2lf   %.2lf\n",
+        ptr->idProduto,ptr->data,ptr->quantidade,ptr->preco,ptr->valor);
+        *aux += ptr->valor;
+        fclose(arq);
+  }
+      movimenta_produto(nome,id,ptr->direita,aux);
+      
+    }
+    else{
+      return *aux;
+    }
+    
+   
+} //movimentação
+void movimenta_produto_texto(char nome[Tam],struct Produtos *ptr,struct TabelaVendas *aux) {
+  FILE *arq = fopen("Movimentação.txt","a");
+  double valo_total;
+  fprintf(arq,"-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--==-=-=\n");
+  fprintf(arq,"Empresa Terceiro SI\nExtrato de Vendas de  %s\n",nome);
+  fprintf(arq,"-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=--==-=-=\n");
+  fprintf(arq,"id Data       Quantidade    Preço    Valor\n");
+  fclose(arq);
+
+  FILE *arq2 = fopen("Movimentação.txt","a");
+  fprintf(arq,"VALOR TOTAL                   %.2lf\n",  
+  movimenta_produto(nome,procurar(nome,ptr)->id,aux,&valo_total));
+  fclose(arq2);
+  
+} //movimentação
+
+////-=-==--=-=-==-=--=-
+void notaCompra(struct Produtos *ptr,char data[Tam],int idCompra) {
+  FILE *arq = fopen("NotaCompras.txt","a");
+  fprintf(arq,"%d  %s  %d  %.2lf  %.2lf  %d  %.2lf\n",idCompra,data,ptr->id,ptr->custo,ptr->ICMS,ptr->quantidade,ptr->preco);
+  printf("ss");
+  fclose(arq);
+  printf("\n  CUPOM FISCAL   \n");
+  printf("%2s\n",data);
+  printf("%5s        %5d      %.2lf\n",ptr->nome,ptr->quantidade,ptr->ICMS);
+  printf("Valor: %.2lf                  \n",ptr->preco);
+  
+
+  
+} //gera a nota de compra
+int verifiar_vazio(struct Produtos* ptr) {
+  if(ptr->id == 0 && ptr->direita == NULL && ptr->esquerda == NULL){
+    return 1;
+  }
+  else{
+    return 0;
+  }
+} //verifica se a arvore ta vazia
+struct Produtos* verificar(struct Produtos* ptr,char nome[Tam]) {
+    if(ptr->direita == NULL && ptr->esquerda == NULL && strcmp(nome,ptr->nome)){
+
+      return NULL;
+    }
+    if(!strcmp(nome,ptr->nome)){
+   
+      return ptr;
+    }
+    if (nome[0]-96 < ptr->nome[0]-96 && ptr->esquerda !=NULL){
+       
+      ptr = verificar(ptr->esquerda,nome);
+	} 
+    else if (nome[0]-96 > ptr->nome[0]-96 && ptr->direita !=NULL){
+    
+      ptr = verificar(ptr->direita,nome);
+	}
+    else if(nome[0] == ptr->nome[0]){
+        if (nome[posicao(nome,ptr->nome)]-96 < ptr->nome[posicao(nome,ptr->nome)]-96 && ptr->esquerda!=NULL){
+            ptr = verificar(ptr->esquerda,nome);
+	} 
+        else if (nome[posicao(nome,ptr->nome)]-96 > ptr->nome[posicao(nome,ptr->nome)-96] && ptr->direita!=NULL){
+                  ptr = verificar(ptr->direita,nome);
+    
+	}
+         
+    }
+    
+} // verifica se oproduto ja existir
+struct Produtos* atualizar_compra (struct Produtos *ptr,int quantidade, double valor) {
+   ptr->preco = ((ptr->quantidade*ptr->preco)+(quantidade*valor))/quantidade+ptr->quantidade;
+   ptr->quantidade += quantidade;
+   return ptr;
+} // atualiza o estoque quando  a compra
+struct Produtos* Reposicao(struct Produtos *ptr, char nome[Tam],int id, char data[Tam],int idCompra) {
+     int quantidade;
+     double ICMS,valor;
+     printf("quantidade-> ");
+     scanf("%d",&quantidade);
+     printf("ICMS->  ");
+     scanf("%lf",&ICMS);
+     printf("Valor->  ");
+     scanf("%lf",&valor);
+     ptr = atualizar_compra(ptr,quantidade,valor);
+     ptr->lucratividade = (ptr->preco - (ptr->custo *ptr->quantidade));///// calcular a lucratividade
+     notaCompra(ptr,data,idCompra);
+     return  ptr;
+} // repor estoque
+
+struct TabelaCompras* novaCompra() {
+  struct TabelaCompras *ptr = (struct TabelaCompras*)malloc(sizeof(struct TabelaCompras));
+  ptr->data[0] = '0';
+  ptr->idNota = 0;
+  ptr->idProduto = 0;
+  ptr->imposto = 0.0;
+  ptr->valor = 0;
+  ptr->preco = 0;
+  ptr->quantidade = 0;
+  ptr->direita = NULL;
+  ptr->esquerda = NULL;
+  return ptr;
+  
+} //gera nova compra
+
+struct TabelaCompras *inserir_do_arquivo_compras(struct TabelaCompras *ptr,int idNota,int idProduto, char data[Tam], 
+double preco, int quant,double imposto, double valor) {
+  if(ptr == NULL){
+    struct TabelaCompras* no = (struct TabelaCompras*)malloc(sizeof(struct TabelaCompras)); 
+    no->preco = preco;
+    for(int i =0;i<Tam;i++){
+     no->data[i] = data[i];
+   }
+    no->idNota = idNota;
+    no->quantidade = quant;
+    no->valor = valor;
+    no->imposto = imposto;
+    no->idProduto = idProduto;
+    no->direita = NULL;
+    no->esquerda = NULL;
+
+  return no;
+  }
+  
+  if (data[0]-30 < ptr->data[0]-30){
+        ptr->esquerda = inserir_do_arquivo_compras(ptr->esquerda, idNota,idProduto,data,
+                   preco,quant,imposto,valor); 
+	          } //armazena pela ordem da data usado a tabel ascii
+  else if (data[0]-30 > ptr->data[0]-30){
+           ptr->direita = inserir_do_arquivo_compras(ptr->direita,idNota,idProduto,data,
+                 preco,quant,imposto,valor);
+            }
+  else{
+    if(!strcmp(data,ptr->data)){
+      if(idNota > ptr->idNota){
+        ptr->direita = inserir_do_arquivo_compras(ptr->direita,idNota,idProduto,data,
+                 preco,quant,imposto,valor);
+      }
+      else if(idNota < ptr->idNota){
+        ptr->esquerda = inserir_do_arquivo_compras(ptr->esquerda, idNota,idProduto,data,
+                   preco,quant,imposto,valor); 
+      }
+    }
+    else if (data[posicao(data,ptr->data)]-30 < ptr->data[posicao(data,ptr->data)]-30){
+                  ptr->esquerda = inserir_do_arquivo_compras(ptr->esquerda, idNota,idProduto,data,
+                   preco,quant,imposto,valor); 
+	          }
+    else if (data[posicao(data,ptr->data)]-30 > ptr->data[posicao(data,ptr->data)]-30){
+         ptr->direita = inserir_do_arquivo_compras(ptr->direita,idNota,idProduto,data,
+                 preco,quant,imposto,valor);
+      }
+    
+    
+  }
+ 
+  return ptr; 
+
+}
+
+void arq_para_arvora_compras(struct TabelaCompras* ptr) {
+    FILE *arq = fopen("NotaCompras.txt", "r");
+    int idNota,idProduto,quantidade;
+    double imposto,preco,valor;
+    int duplo = 1;
+    char data[Tam];
+    if(arq != NULL){
+      while(!feof(arq)){
+        fscanf(arq,"%s%d%d%d%lf%lf%lf",data,&idProduto,&idNota,&quantidade,&preco,&imposto,&valor);
+        
+        if(idProduto !=0 && duplo!=idNota){
+            duplo = idNota;
+          
+          ptr = inserir_do_arquivo_compras(ptr,idNota,idProduto,data,preco,quantidade,imposto,valor); 
+        }
+        
+         
+    }
+     fclose(arq); 
+    }
+    
+   
+  }
+int posicao_vendas(char nome[Tam], char nome2[Tam]){
+  int i =0;
+  while(nome[i]  == nome2[i]){
+    i++;
+  }
+  return i; 
+}
+
+struct TabelaVendas* inserir_do_arquivo_vendas(struct TabelaVendas* ptr, int idNota,int idProduto, char data[Tam], 
+double preco, int quant,double imposto, double valor) { 
+  if (ptr == NULL) {
+    struct TabelaVendas* no = (struct TabelaVendas*)malloc(sizeof(struct TabelaVendas)); 
+    no->preco = preco;
+    for(int i =0;i<Tam;i++){
+     no->data[i] = data[i];
+   }
+    no->idNota = idNota;
+    no->quantidade = quant;
+    no->valor = valor;
+    no->imposto = imposto;
+    no->idProduto = idProduto;
+    no->direita = NULL;
+    no->esquerda = NULL;
+
+  return no;
+ } //quando achar o local ele inseri o novo no
+  if (data[0]-30 < ptr->data[0]-30){
+                  ptr->esquerda = inserir_do_arquivo_vendas(ptr->esquerda, idNota,idProduto,data,
+                   preco,quant,imposto,valor); 
+	          } //armazena pela ordem da data usado a tabel ascii
+  else if (data[0]-30 > ptr->data[0]-30){
+                ptr->direita = inserir_do_arquivo_vendas(ptr->direita,idNota,idProduto,data,
+                 preco,quant,imposto,valor);
+            }
+  
+  else{
+    if(!strcmp(data,ptr->data)){
+      if(idNota > ptr->idNota){
+        ptr->direita = inserir_do_arquivo_vendas(ptr->direita,idNota,idProduto,data,
+                 preco,quant,imposto,valor);
+      }
+      else if(idNota < ptr->idNota){
+        ptr->esquerda = inserir_do_arquivo_vendas(ptr->esquerda, idNota,idProduto,data,
+                   preco,quant,imposto,valor); 
+      }
+    }
+    else if (data[posicao_vendas(data,ptr->data)]-30 < ptr->data[posicao_vendas(data,ptr->data)]-30){
+                  ptr->esquerda = inserir_do_arquivo_vendas(ptr->esquerda, idNota,idProduto,data,
+                   preco,quant,imposto,valor); 
+	          }
+    else if (data[posicao_vendas(data,ptr->data)]-30 > ptr->data[posicao_vendas(data,ptr->data)]-30){
+         ptr->direita = inserir_do_arquivo_vendas(ptr->direita,idNota,idProduto,data,
+                 preco,quant,imposto,valor);
+      }
+    
+    
+  }
+ 
+  return ptr; 
+
+}
+
+void arq_para_arvore(struct TabelaVendas *ptr) {
+  FILE *arq = fopen("Vendas.txt","r");
+
+  int idNota,idProduto,quantidade;
+  double imposto,preco,valor;
+  char data[Tam];
+  if(arq != NULL){
+    while(!feof(arq)){
+        fscanf(arq,"%s%d%d%d%lf%lf%lf",data,&idProduto,&idNota,&quantidade,&preco,&imposto,&valor);
+  
+        if(idProduto!=0){
+            ptr = inserir_do_arquivo_vendas(ptr,idNota,idProduto,data,preco,quantidade,imposto,valor); 
+     } 
+    }
+    fclose(arq);
+  }
+
+ 
+}
+void arvore_para_arq(struct TabelaVendas *ptr) {
+  if(ptr != NULL){
+    arvore_para_arq(ptr->esquerda);
+    FILE *arq = fopen("Vendas.txt", "a");
+    if(ptr->quantidade!=0){
+
+       fprintf(arq,"%s   %d   %d   %d   %.2lf   %.2lf   %.2lf\n",
+    ptr->data,ptr->idProduto,ptr->idNota,ptr->quantidade,ptr->preco,ptr->imposto,ptr->valor);
+     }
+    fclose(arq);
+    arvore_para_arq(ptr->direita); 
+ }
+}
+
+double relacao_vendas(int mes,struct TabelaVendas *ptr,double *valor_total) {
+  if(ptr!=NULL){
+    relacao_vendas(mes,ptr->esquerda,valor_total);
+    if( (( ptr->data[3]-48) + (ptr->data[4]-48)) == mes ){ 
+      FILE *arq = fopen("RelaçãoVendas.txt","a");
+      FILE *arq2 = fopen("Produtos.txt","r");
+      
+      int id ,quantidade;
+      char nome[Tam];
+      double custo, ICMS, depesa,lucratividade,preco;
+      
+      while(!feof(arq2)){
+
+       fscanf(arq2,"%d%s%lf%d%lf%lf%lf%lf",
+        &id,nome,&preco,&quantidade,&ICMS,&custo,&depesa,&lucratividade);
+        if(id == ptr->idProduto){
+          break;
+        }
+    }
+      
+      *valor_total += (ptr->valor*ptr->quantidade);
+      fprintf(arq,"%-5d%-2s          %-2d              %.2lf          %.2lf\n",
+         ptr->idProduto,nome,ptr->quantidade,ptr->valor,ptr->valor*ptr->quantidade);
+      printf("%s",nome);
+      fclose(arq);
+      fclose(arq2);
+
+     }
+    relacao_vendas(mes,ptr->direita,valor_total);
+
+   
+  }
+  else{
+    return *valor_total;
+  }
+     
+}   
+void relacao_vendas_txt(int mes,struct TabelaVendas *ptr) {
+    FILE *arq = fopen("RelaçãoVendas.txt","a");
+    double aux;
+    fprintf(arq,"-=-=-=-=-==-=-==-=-=-=-=-=--=-=-=-=-=-=-=-=-=--=-=-=-=\n");
+    fprintf(arq,"Empresa Terceiro SI\nRelação de Vendas do mês %d\n",mes);
+    fprintf(arq,"-=-=-=-=-==-=-==-=-=-=-=-=--=-=-=-=-=-=-=-=-=--=-=-=-=\n");
+    fprintf(arq,"id   Descrição   Quantidade     Preço    Valor\n");
+    fclose(arq);
+    FILE *arq2 = fopen("RelaçãoVendas.txt","a");
+    fprintf(arq2,"VALOR TOTAL               %.2f\n",relacao_vendas(mes,ptr,&aux));
+    fclose(arq2);
+  
+}
